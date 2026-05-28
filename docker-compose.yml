@@ -1,0 +1,74 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Tiny Gate — LOCAL development compose
+#  Runs: backend + mongo only (frontend via `npm run dev`)
+#  Usage: docker compose up -d
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: '3.9'
+
+services:
+
+  # ── Node.js backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tinygate_backend
+    restart: unless-stopped
+    ports:
+      - '5001:5000'
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/tinygate
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - tinygate_net
+    volumes:
+      # hot-reload friendly: mount src but not node_modules
+      - ./src:/app/src:ro
+      - ./server.js:/app/server.js:ro
+
+  # ── React frontend ───────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5001
+    container_name: tinygate_frontend
+    restart: unless-stopped
+    ports:
+      - '4000:80'
+    depends_on:
+      - backend
+    networks:
+      - tinygate_net
+
+  # ── MongoDB ───────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: tinygate_mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'           # expose for local dev tools (Compass etc.)
+    volumes:
+      - mongo_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - tinygate_net
+
+volumes:
+  mongo_data:
+
+networks:
+  tinygate_net:
+    driver: bridge

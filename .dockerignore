@@ -1,0 +1,17 @@
+node_modules
+client
+npm-debug.log*
+.env
+.env.local
+.env.production
+.env.production.example
+.DS_Store
+Thumbs.db
+*.log
+coverage
+dist
+.git
+.gitignore
+DEPLOY.md
+scripts
+nginx
